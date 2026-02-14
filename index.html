@@ -5,13 +5,98 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buku Tamu - Balai Monitor SFR Kelas II Palu</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-  <style>
-        * { font-family: 'Geist', 'Space Grotesk', sans-serif; }
-        
-        /* 2026 Modern Design */
+  <script type="module">
+        // 1. Import Firebase SDK versi Modular dari CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // 2. PASTE CONFIG FIREBASE ANDA DI SINI
+        // Ganti nilai di bawah ini dengan firebaseConfig yang Anda dapatkan di Langkah 2
+        const firebaseConfig = {
+  apiKey: "AIzaSyAIO4SFmMfnKOTkntNycRuS9masQhcKQWI",
+  authDomain: "buku-tamu-balmon-palu-3161f.firebaseapp.com",
+  projectId: "buku-tamu-balmon-palu-3161f",
+  storageBucket: "buku-tamu-balmon-palu-3161f.firebasestorage.app",
+  messagingSenderId: "660097755644",
+  appId: "1:660097755644:web:43ff4deceac07697edea79"
+};
+        // 3. Inisialisasi Firebase dan Firestore
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Fungsi Toast (Tetap dipertahankan dari desain Anda)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                : 'bg-gradient-to-r from-red-500 to-rose-500'; // Warna merah untuk error
+            
+            toast.className = `toast-enter px-6 py-3 rounded-xl shadow-xl flex items-center gap-3 ${bgColor} text-white font-medium backdrop-blur-sm`;
+            
+            const icon = type === 'success' 
+                ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>'
+                : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+            
+            toast.innerHTML = `${icon}<span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 400);
+            }, 3500);
+        }
+
+        // Fungsi Handler saat Form disubmit
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            const successMsg = document.getElementById('success-message');
+            const btn = document.getElementById('submit-btn');
+            
+            // Ubah tombol menjadi status loading
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>';
+            
+            try {
+                // 4. Ambil nilai dari input form
+                const tamuData = {
+                    nama: document.getElementById('nama').value,
+                    alamat: document.getElementById('alamat').value,
+                    instansi: document.getElementById('instansi').value,
+                    keperluan: document.getElementById('keperluan').value,
+                    telepon: document.getElementById('telepon').value,
+                    tanggal: document.getElementById('tanggal').value,
+                    waktu_submit: serverTimestamp() // Catat waktu asli server
+                };
+
+                // 5. Simpan data ke koleksi "buku_tamu" di Firestore
+                await addDoc(collection(db, "buku_tamu"), tamuData);
+
+                // Tampilkan sukses
+                showToast('✓ Data berhasil disimpan!', 'success');
+                successMsg.classList.remove('hidden');
+                document.getElementById('guest-form').reset(); // Kosongkan form
+                
+                setTimeout(() => {
+                    successMsg.classList.add('hidden');
+                }, 5000);
+
+            } catch (error) {
+                console.error("Error saat menyimpan data: ", error);
+                showToast('Gagal menyimpan data. Coba lagi!', 'error');
+            } finally {
+                // Kembalikan tombol ke keadaan semula
+                btn.disabled = false;
+                btn.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span>Simpan Data</span>';
+            }
+        }
+
+        // Daftarkan event listener
+        document.getElementById('guest-form').addEventListener('submit', handleSubmit);
+  </script>
         body {
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
         }
