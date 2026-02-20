@@ -129,14 +129,30 @@
      </div>
      
      <form id="guest-form" class="p-6 md:p-10 space-y-6">
-      <div class="group">
-          <label for="nama" class="block text-sm font-semibold text-slate-800 mb-3"> <span class="flex items-center gap-2"> <span class="w-1.5 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"></span> Nama Lengkap </span> </label> 
-          <input type="text" id="nama" required placeholder="Masukkan nama lengkap Anda" class="w-full px-5 py-3.5 input-modern rounded-xl text-slate-900 placeholder-slate-400 font-medium focus:outline-none">
+      
+      <div class="grid md:grid-cols-2 gap-6">
+          <div class="group">
+              <label for="nama" class="block text-sm font-semibold text-slate-800 mb-3"> <span class="flex items-center gap-2"> <span class="w-1.5 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"></span> Nama Lengkap </span> </label> 
+              <input type="text" id="nama" required placeholder="Masukkan nama lengkap Anda" class="w-full px-5 py-3.5 input-modern rounded-xl text-slate-900 placeholder-slate-400 font-medium focus:outline-none">
+          </div>
+          <div class="group">
+              <label for="jenis_kelamin" class="block text-sm font-semibold text-slate-800 mb-3"> <span class="flex items-center gap-2"> <span class="w-1.5 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"></span> Jenis Kelamin </span> </label>
+              <div class="relative">
+                  <select id="jenis_kelamin" required class="w-full px-5 py-3.5 input-modern rounded-xl text-slate-900 font-medium appearance-none bg-white focus:outline-none cursor-pointer"> 
+                      <option value="" disabled selected>Pilih jenis kelamin</option> 
+                      <option value="Laki-laki">Laki-laki</option> 
+                      <option value="Perempuan">Perempuan</option> 
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                      <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+              </div>
+          </div>
       </div>
       
       <div class="group">
           <label for="alamat" class="block text-sm font-semibold text-slate-800 mb-3"> <span class="flex items-center gap-2"> <span class="w-1.5 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"></span> Alamat </span> </label> 
-          <textarea id="alamat" rows="3" required placeholder="Masukkan alamat lengkap Anda" class="w-full px-5 py-3.5 input-modern rounded-xl text-slate-900 placeholder-slate-400 font-medium resize-none focus:outline-none"></textarea>
+          <textarea id="alamat" rows="2" required placeholder="Masukkan alamat lengkap Anda" class="w-full px-5 py-3.5 input-modern rounded-xl text-slate-900 placeholder-slate-400 font-medium resize-none focus:outline-none"></textarea>
       </div>
       
       <div class="grid md:grid-cols-2 gap-6">
@@ -154,7 +170,7 @@
                 <option value="Pengaduan Gangguan">Pengaduan Gangguan</option> 
                 <option value="Kunjungan Dinas">Kunjungan Dinas</option> 
                 <option value="Kerjasama">Kerjasama</option> 
-                <option value="Lainnya">Lainnya</option> 
+                <option value="Ujian Amatir Radio (UNAR)">Ujian Amatir Radio (UNAR)</option> <option value="Lainnya">Lainnya</option> 
             </select>
          <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
           <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -183,6 +199,15 @@
         </div>
        </div>
       </div>
+
+      <div class="group">
+        <label for="testimoni" class="block text-sm font-semibold text-slate-800 mb-3 flex items-center justify-between"> 
+            <span class="flex items-center gap-2"> 
+                <span class="w-1.5 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"></span> Kesan & Pesan Terhadap Pelayanan 
+            </span> 
+            <span class="text-xs text-slate-500 font-normal">Maks. 300 karakter</span> </label> 
+        <textarea id="testimoni" rows="3" required maxlength="300" placeholder="Bagaimana kesan dan pesan Anda terhadap pelayanan kami?" class="w-full px-5 py-3.5 input-modern rounded-xl text-slate-900 placeholder-slate-400 font-medium resize-none focus:outline-none"></textarea>
+      </div>
       
       <div class="pt-4">
           <button type="submit" id="submit-btn" class="w-full btn-modern text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 text-lg shadow-lg">
@@ -207,7 +232,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    // PASTIKAN ANDA MENGGANTI BAGIAN INI DENGAN CONFIG PROYEK FIREBASE ANDA
     const firebaseConfig = {
         apiKey: "AIzaSyAIO4SFmMfnKOTkntNycRuS9masQhcKQWI",
         authDomain: "buku-tamu-balmon-palu-3161f.firebaseapp.com",
@@ -215,7 +239,6 @@
         storageBucket: "buku-tamu-balmon-palu-3161f.firebasestorage.app",
         messagingSenderId: "660097755644",
         appId: "1:660097755644:web:43ff4deceac07697edea79"
-
     };
 
     const app = initializeApp(firebaseConfig);
@@ -257,11 +280,13 @@
         try {
             const tamuData = {
                 nama: document.getElementById('nama').value,
+                jenis_kelamin: document.getElementById('jenis_kelamin').value,
                 alamat: document.getElementById('alamat').value,
                 instansi: document.getElementById('instansi').value,
                 keperluan: document.getElementById('keperluan').value,
                 telepon: document.getElementById('telepon').value,
                 tanggal: document.getElementById('tanggal').value,
+                testimoni: document.getElementById('testimoni').value,
                 waktu_submit: serverTimestamp()
             };
 
