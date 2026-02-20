@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
   <style>
         * { font-family: 'Geist', 'Space Grotesk', sans-serif; }
         body { background-color: #f8fafc; }
@@ -26,10 +28,14 @@
         <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Dashboard Admin Buku Tamu</h1>
         <p class="text-slate-500 mt-1">Balai Monitor SFR Kelas II Palu</p>
       </div>
-      <div class="flex gap-3">
+      <div class="flex flex-wrap gap-3">
         <button onclick="loadData()" class="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           Refresh Data
+        </button>
+        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Export Excel
         </button>
       </div>
     </header>
@@ -40,7 +46,8 @@
           <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
               <th class="p-4 font-semibold whitespace-nowrap">No</th>
-              <th class="p-4 font-semibold whitespace-nowrap">Waktu Kunjungan</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Waktu Submit</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Tgl Kunjungan</th>
               <th class="p-4 font-semibold whitespace-nowrap">Nama Lengkap</th>
               <th class="p-4 font-semibold whitespace-nowrap">L/P</th>
               <th class="p-4 font-semibold whitespace-nowrap">Instansi</th>
@@ -51,7 +58,7 @@
           </thead>
           <tbody id="table-body" class="divide-y divide-slate-100">
             <tr>
-              <td colspan="8" class="p-8 text-center text-slate-500">
+              <td colspan="9" class="p-8 text-center text-slate-500">
                 <div class="flex justify-center items-center gap-3">
                   <svg class="w-5 h-5 animate-spin text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                   Memuat data...
@@ -66,9 +73,9 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    // Tambahkan getDocs, query, dan orderBy untuk mengambil dan mengurutkan data
     import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
+    // PASTIKAN CONFIG INI SAMA DENGAN MILIK ANDA SEBELUMNYA
     const firebaseConfig = {
         apiKey: "AIzaSyAIO4SFmMfnKOTkntNycRuS9masQhcKQWI",
         authDomain: "buku-tamu-balmon-palu-3161f.firebaseapp.com",
@@ -81,8 +88,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Fungsi untuk format tanggal dari Firebase Timestamp ke format lokal Indonesia
-    function formatTanggal(timestamp) {
+    // Variabel global untuk menyimpan data yang siap diekspor ke Excel
+    window.excelData = []; 
+
+    function formatTanggalWaktu(timestamp) {
         if (!timestamp) return '-';
         const date = timestamp.toDate();
         return new Intl.DateTimeFormat('id-ID', {
@@ -91,13 +100,24 @@
         }).format(date);
     }
 
-    // Jadikan fungsi loadData tersedia secara global agar tombol "Refresh" bisa memanggilnya
+    function formatTanggalSaja(tanggalString) {
+        if (!tanggalString) return '-';
+        // Mengubah format YYYY-MM-DD menjadi format lokal yang rapi
+        const parts = tanggalString.split('-');
+        if(parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return tanggalString;
+    }
+
     window.loadData = async function() {
         const tbody = document.getElementById('table-body');
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500"><div class="flex justify-center items-center gap-3"><svg class="w-5 h-5 animate-spin text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Memuat ulang data...</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500"><div class="flex justify-center items-center gap-3"><svg class="w-5 h-5 animate-spin text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Memuat ulang data...</div></td></tr>`;
+        
+        // Kosongkan data excel sebelumnya
+        window.excelData = [];
 
         try {
-            // Mengambil data dari koleksi "buku_tamu", diurutkan berdasarkan waktu_submit terbaru (descending)
             const q = query(collection(db, "buku_tamu"), orderBy("waktu_submit", "desc"));
             const querySnapshot = await getDocs(q);
             
@@ -105,22 +125,38 @@
             let no = 1;
 
             if (querySnapshot.empty) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">Belum ada data tamu.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Belum ada data tamu.</td></tr>`;
                 return;
             }
 
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 
-                // Ambil inisial jenis kelamin (L/P) untuk menghemat ruang tabel
                 const inisialJK = data.jenis_kelamin === 'Laki-laki' ? 'L' : (data.jenis_kelamin === 'Perempuan' ? 'P' : '-');
+                const waktuSubmitFormated = formatTanggalWaktu(data.waktu_submit);
+                const tglKunjunganFormated = formatTanggalSaja(data.tanggal);
+
+                // Tambahkan data ke dalam Array agar mudah di-ekspor ke Excel
+                window.excelData.push({
+                    "No": no,
+                    "Waktu Mendaftar": waktuSubmitFormated,
+                    "Tanggal Kunjungan": tglKunjunganFormated,
+                    "Nama Lengkap": data.nama || '-',
+                    "Jenis Kelamin": data.jenis_kelamin || '-',
+                    "Alamat": data.alamat || '-',
+                    "Instansi / Perusahaan": data.instansi || '-',
+                    "Keperluan": data.keperluan || '-',
+                    "No. Telepon / WA": data.telepon || '-',
+                    "Kesan & Pesan": data.testimoni || '-'
+                });
 
                 html += `
                 <tr class="hover:bg-slate-50 transition-colors">
                     <td class="p-4 text-sm text-slate-600">${no++}</td>
-                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">${formatTanggal(data.waktu_submit)}</td>
+                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">${waktuSubmitFormated}</td>
+                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">${tglKunjunganFormated}</td>
                     <td class="p-4 text-sm font-medium text-slate-900">${data.nama || '-'}</td>
-                    <td class="p-4 text-sm text-slate-600">${inisialJK}</td>
+                    <td class="p-4 text-sm text-slate-600 text-center">${inisialJK}</td>
                     <td class="p-4 text-sm text-slate-600">${data.instansi || '-'}</td>
                     <td class="p-4 text-sm text-slate-600"><span class="bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md text-xs font-medium border border-cyan-100 whitespace-nowrap">${data.keperluan || '-'}</span></td>
                     <td class="p-4 text-sm text-slate-600">${data.telepon || '-'}</td>
@@ -137,8 +173,47 @@
 
         } catch (error) {
             console.error("Gagal mengambil data: ", error);
-            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-500">Terjadi kesalahan saat mengambil data. Periksa koneksi atau izin Firebase Anda.</td></tr>`;
+            // Menambahkan log console yang lebih rinci agar Anda bisa melihat tipe error spesifiknya di F12
+            console.log("Detail Error:", error.message); 
+            tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-500">Terjadi kesalahan saat mengambil data. Periksa koneksi atau izin Firebase Anda.<br><span class="text-xs mt-2 block opacity-70">Cek Console (F12) untuk detail error. Jangan lupa atur Rules Firestore ke "allow read, write: if true;"</span></td></tr>`;
         }
+    }
+
+    // Fungsi untuk mengekspor data ke Excel
+    window.exportToExcel = function() {
+        if (window.excelData.length === 0) {
+            alert("Belum ada data untuk diekspor!");
+            return;
+        }
+
+        // Membuat worksheet (lembar kerja) dari data array JSON
+        const worksheet = XLSX.utils.json_to_sheet(window.excelData);
+        
+        // Membuat workbook (buku kerja Excel)
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data Tamu");
+        
+        // Atur lebar kolom agar lebih rapi saat dibuka
+        const wscols = [
+            {wch: 5},  // No
+            {wch: 20}, // Waktu Mendaftar
+            {wch: 18}, // Tanggal Kunjungan
+            {wch: 25}, // Nama
+            {wch: 15}, // Jenis Kelamin
+            {wch: 35}, // Alamat
+            {wch: 25}, // Instansi
+            {wch: 25}, // Keperluan
+            {wch: 15}, // Telepon
+            {wch: 50}, // Testimoni
+        ];
+        worksheet['!cols'] = wscols;
+
+        // Mendapatkan tanggal hari ini untuk nama file
+        const dateStr = new Date().toISOString().split('T')[0];
+        const fileName = `Rekap_Buku_Tamu_Balmon_Palu_${dateStr}.xlsx`;
+
+        // Menyimpan file
+        XLSX.writeFile(workbook, fileName);
     }
 
     // Panggil fungsi saat halaman pertama kali dimuat
