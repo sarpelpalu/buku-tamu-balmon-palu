@@ -1,12 +1,255 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /buku_tamu/{document=**} {
-      // Siapapun BISA mengisi buku tamu
-      allow create: if true; 
+<!doctype html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Admin - Buku Tamu Balmon Palu</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+        * { font-family: 'Geist', 'Space Grotesk', sans-serif; }
+        body { background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .input-modern {
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .input-modern:focus { border-color: #0ea5e9; outline: none; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+  </style>
+</head>
+<body class="h-full bg-slate-50 overflow-auto">
+  
+  <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-slate-100">
+      <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold text-slate-800">Login Admin</h1>
+        <p class="text-slate-500 mt-2 text-sm">Masuk untuk melihat rekap buku tamu</p>
+      </div>
       
-      // HANYA Admin (yang sudah login) yang BISA membaca & melihat data
-      allow read, update, delete: if request.auth != null; 
+      <form id="login-form" class="space-y-5">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-2">Email Admin</label>
+          <input type="email" id="email" required placeholder="admin@balmonpalu.com" class="w-full px-4 py-3 input-modern rounded-xl text-slate-900">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+          <input type="password" id="password" required placeholder="••••••••" class="w-full px-4 py-3 input-modern rounded-xl text-slate-900">
+        </div>
+        
+        <div id="login-error" class="hidden bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100"></div>
+        
+        <button type="submit" id="btn-login" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2">
+          <span>Masuk ke Dashboard</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="dashboard-screen" class="hidden min-h-full p-4 md:p-8">
+    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Dashboard Admin Buku Tamu</h1>
+        <p class="text-slate-500 mt-1">Balai Monitor SFR Kelas II Palu</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <button onclick="loadData()" class="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh Data
+        </button>
+        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Export Excel
+        </button>
+        <button onclick="logoutAdmin()" class="bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Keluar
+        </button>
+      </div>
+    </header>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+              <th class="p-4 font-semibold whitespace-nowrap">No</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Waktu Submit</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Tgl Kunjungan</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Nama Lengkap</th>
+              <th class="p-4 font-semibold whitespace-nowrap">L/P</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Instansi</th>
+              <th class="p-4 font-semibold whitespace-nowrap">Keperluan</th>
+              <th class="p-4 font-semibold whitespace-nowrap">No. Telepon</th>
+              <th class="p-4 font-semibold whitespace-nowrap min-w-[250px]">Kesan & Pesan</th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="divide-y divide-slate-100">
+            <tr><td colspan="9" class="p-8 text-center text-slate-500">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    // IMPORT LIBRARY AUTENTIKASI DARI FIREBASE
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    // PASTIKAN CONFIG INI SAMA
+    const firebaseConfig = {
+        apiKey: "AIzaSyAIO4SFmMfnKOTkntNycRuS9masQhcKQWI",
+        authDomain: "buku-tamu-balmon-palu-3161f.firebaseapp.com",
+        projectId: "buku-tamu-balmon-palu-3161f",
+        storageBucket: "buku-tamu-balmon-palu-3161f.firebasestorage.app",
+        messagingSenderId: "660097755644",
+        appId: "1:660097755644:web:43ff4deceac07697edea79"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app); // Inisialisasi Auth
+
+    window.excelData = [];
+
+    // Tampilan Layar
+    const loginScreen = document.getElementById('login-screen');
+    const dashboardScreen = document.getElementById('dashboard-screen');
+    const loginError = document.getElementById('login-error');
+
+    // CEK STATUS LOGIN SAAT HALAMAN DIBUKA
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // Jika sudah login, sembunyikan login, tampilkan dashboard & muat data
+            loginScreen.classList.add('hidden');
+            dashboardScreen.classList.remove('hidden');
+            window.loadData();
+        } else {
+            // Jika belum login (atau logout), tampilkan form login
+            dashboardScreen.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+        }
+    });
+
+    // PROSES LOGIN
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const btnLogin = document.getElementById('btn-login');
+
+        btnLogin.disabled = true;
+        btnLogin.innerHTML = "Memeriksa...";
+        loginError.classList.add('hidden');
+
+        signInWithEmailAndPassword(auth, email, password)
+            .then((userCredential) => {
+                // Berhasil login (akan otomatis ditangkap oleh onAuthStateChanged di atas)
+                btnLogin.disabled = false;
+                btnLogin.innerHTML = "Masuk ke Dashboard";
+            })
+            .catch((error) => {
+                btnLogin.disabled = false;
+                btnLogin.innerHTML = "Masuk ke Dashboard";
+                loginError.classList.remove('hidden');
+                loginError.innerText = "Email atau password salah! Silakan coba lagi.";
+                console.error(error.message);
+            });
+    });
+
+    // PROSES LOGOUT
+    window.logoutAdmin = function() {
+        if(confirm("Apakah Anda yakin ingin keluar?")) {
+            signOut(auth).then(() => {
+                // Form di-reset otomatis
+                document.getElementById('login-form').reset();
+            }).catch((error) => {
+                alert("Gagal keluar dari sistem.");
+            });
+        }
     }
-  }
-}
+
+    // FUNGSI MUAT DATA (Sama seperti sebelumnya)
+    function formatTanggalWaktu(timestamp) {
+        if (!timestamp) return '-';
+        return new Intl.DateTimeFormat('id-ID', {
+            day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        }).format(timestamp.toDate());
+    }
+
+    function formatTanggalSaja(tanggalString) {
+        if (!tanggalString) return '-';
+        const parts = tanggalString.split('-');
+        if(parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return tanggalString;
+    }
+
+    window.loadData = async function() {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Mengambil data terbaru...</td></tr>`;
+        window.excelData = [];
+
+        try {
+            const q = query(collection(db, "buku_tamu"), orderBy("waktu_submit", "desc"));
+            const querySnapshot = await getDocs(q);
+            let html = ''; let no = 1;
+
+            if (querySnapshot.empty) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Belum ada data tamu.</td></tr>`;
+                return;
+            }
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const inisialJK = data.jenis_kelamin === 'Laki-laki' ? 'L' : (data.jenis_kelamin === 'Perempuan' ? 'P' : '-');
+                const waktuSubmitFormated = formatTanggalWaktu(data.waktu_submit);
+                const tglKunjunganFormated = formatTanggalSaja(data.tanggal);
+
+                window.excelData.push({
+                    "No": no, "Waktu Mendaftar": waktuSubmitFormated, "Tanggal Kunjungan": tglKunjunganFormated,
+                    "Nama Lengkap": data.nama || '-', "Jenis Kelamin": data.jenis_kelamin || '-', "Alamat": data.alamat || '-',
+                    "Instansi / Perusahaan": data.instansi || '-', "Keperluan": data.keperluan || '-',
+                    "No. Telepon / WA": data.telepon || '-', "Kesan & Pesan": data.testimoni || '-'
+                });
+
+                html += `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                    <td class="p-4 text-sm text-slate-600">${no++}</td>
+                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">${waktuSubmitFormated}</td>
+                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">${tglKunjunganFormated}</td>
+                    <td class="p-4 text-sm font-medium text-slate-900">${data.nama || '-'}</td>
+                    <td class="p-4 text-sm text-slate-600 text-center">${inisialJK}</td>
+                    <td class="p-4 text-sm text-slate-600">${data.instansi || '-'}</td>
+                    <td class="p-4 text-sm text-slate-600"><span class="bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md text-xs font-medium border border-cyan-100">${data.keperluan || '-'}</span></td>
+                    <td class="p-4 text-sm text-slate-600">${data.telepon || '-'}</td>
+                    <td class="p-4 text-sm text-slate-600"><div class="line-clamp-2 text-xs leading-relaxed" title="${data.testimoni || ''}">${data.testimoni || '-'}</div></td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        } catch (error) {
+            tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-500">Akses ditolak atau koneksi gagal. Pastikan Anda memiliki izin (Auth).</td></tr>`;
+        }
+    }
+
+    // FUNGSI EXPORT EXCEL
+    window.exportToExcel = function() {
+        if (window.excelData.length === 0) return alert("Belum ada data untuk diekspor!");
+        const worksheet = XLSX.utils.json_to_sheet(window.excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data Tamu");
+        worksheet['!cols'] = [{wch:5}, {wch:20}, {wch:18}, {wch:25}, {wch:15}, {wch:35}, {wch:25}, {wch:25}, {wch:15}, {wch:50}];
+        XLSX.writeFile(workbook, `Rekap_Buku_Tamu_Balmon_Palu_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+  </script>
+</body>
+</html>
