@@ -8,7 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
         * { font-family: 'Geist', 'Space Grotesk', sans-serif; }
@@ -75,6 +77,28 @@
       </div>
     </header>
 
+    <div class="grid md:grid-cols-2 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Statistik 7 Hari Terakhir
+        </h3>
+        <div class="relative h-64 w-full">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+      </div>
+      
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+            Statistik Bulanan (Tahun Ini)
+        </h3>
+        <div class="relative h-64 w-full">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
@@ -102,10 +126,8 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-    // IMPORT LIBRARY AUTENTIKASI DARI FIREBASE
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-    // PASTIKAN CONFIG INI SAMA
     const firebaseConfig = {
         apiKey: "AIzaSyAIO4SFmMfnKOTkntNycRuS9masQhcKQWI",
         authDomain: "buku-tamu-balmon-palu-3161f.firebaseapp.com",
@@ -117,30 +139,29 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth(app); // Inisialisasi Auth
+    const auth = getAuth(app);
 
     window.excelData = [];
+    
+    // Variabel untuk menyimpan instance grafik agar bisa di-refresh tanpa tumpang tindih
+    let weeklyChartInstance = null;
+    let monthlyChartInstance = null;
 
-    // Tampilan Layar
     const loginScreen = document.getElementById('login-screen');
     const dashboardScreen = document.getElementById('dashboard-screen');
     const loginError = document.getElementById('login-error');
 
-    // CEK STATUS LOGIN SAAT HALAMAN DIBUKA
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            // Jika sudah login, sembunyikan login, tampilkan dashboard & muat data
             loginScreen.classList.add('hidden');
             dashboardScreen.classList.remove('hidden');
             window.loadData();
         } else {
-            // Jika belum login (atau logout), tampilkan form login
             dashboardScreen.classList.add('hidden');
             loginScreen.classList.remove('hidden');
         }
     });
 
-    // PROSES LOGIN
     document.getElementById('login-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const email = document.getElementById('email').value;
@@ -152,33 +173,24 @@
         loginError.classList.add('hidden');
 
         signInWithEmailAndPassword(auth, email, password)
-            .then((userCredential) => {
-                // Berhasil login (akan otomatis ditangkap oleh onAuthStateChanged di atas)
+            .then(() => {
                 btnLogin.disabled = false;
                 btnLogin.innerHTML = "Masuk ke Dashboard";
             })
-            .catch((error) => {
+            .catch(() => {
                 btnLogin.disabled = false;
                 btnLogin.innerHTML = "Masuk ke Dashboard";
                 loginError.classList.remove('hidden');
                 loginError.innerText = "Email atau password salah! Silakan coba lagi.";
-                console.error(error.message);
             });
     });
 
-    // PROSES LOGOUT
     window.logoutAdmin = function() {
         if(confirm("Apakah Anda yakin ingin keluar?")) {
-            signOut(auth).then(() => {
-                // Form di-reset otomatis
-                document.getElementById('login-form').reset();
-            }).catch((error) => {
-                alert("Gagal keluar dari sistem.");
-            });
+            signOut(auth).then(() => document.getElementById('login-form').reset());
         }
     }
 
-    // FUNGSI MUAT DATA (Sama seperti sebelumnya)
     function formatTanggalWaktu(timestamp) {
         if (!timestamp) return '-';
         return new Intl.DateTimeFormat('id-ID', {
@@ -194,6 +206,64 @@
         return tanggalString;
     }
 
+    // FUNGSI RENDER GRAFIK
+    function renderCharts(weeklyLabels, weeklyData, monthlyData) {
+        const ctxWeekly = document.getElementById('weeklyChart').getContext('2d');
+        const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
+
+        // Hapus grafik lama jika tombol refresh ditekan agar tidak menumpuk
+        if (weeklyChartInstance) weeklyChartInstance.destroy();
+        if (monthlyChartInstance) monthlyChartInstance.destroy();
+
+        // Grafik Bar 7 Hari Terakhir
+        weeklyChartInstance = new Chart(ctxWeekly, {
+            type: 'bar',
+            data: {
+                labels: weeklyLabels,
+                datasets: [{
+                    label: 'Pengunjung',
+                    data: weeklyData,
+                    backgroundColor: 'rgba(14, 165, 233, 0.7)', // Cyan Tailwind
+                    borderColor: 'rgb(14, 165, 233)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+
+        // Grafik Line Bulanan
+        monthlyChartInstance = new Chart(ctxMonthly, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'],
+                datasets: [{
+                    label: 'Pengunjung',
+                    data: monthlyData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)', // Emerald Tailwind
+                    borderColor: 'rgb(16, 185, 129)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgb(16, 185, 129)',
+                    tension: 0.3, // Membuat garis sedikit melengkung (smooth)
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+
     window.loadData = async function() {
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Mengambil data terbaru...</td></tr>`;
@@ -202,15 +272,33 @@
         try {
             const q = query(collection(db, "buku_tamu"), orderBy("waktu_submit", "desc"));
             const querySnapshot = await getDocs(q);
+            
             let html = ''; let no = 1;
+
+            // VARIABEL UNTUK HITUNGAN GRAFIK
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            
+            const monthlyCounts = new Array(12).fill(0);
+            const last7DaysLabels = [];
+            const last7DaysCounts = new Array(7).fill(0);
+
+            // Siapkan label 7 hari terakhir (Mundur)
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+                last7DaysLabels.push(d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
+            }
 
             if (querySnapshot.empty) {
                 tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">Belum ada data tamu.</td></tr>`;
+                renderCharts(last7DaysLabels, last7DaysCounts, monthlyCounts);
                 return;
             }
 
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
+                
+                // DATA TABEL & EXCEL
                 const inisialJK = data.jenis_kelamin === 'Laki-laki' ? 'L' : (data.jenis_kelamin === 'Perempuan' ? 'P' : '-');
                 const waktuSubmitFormated = formatTanggalWaktu(data.waktu_submit);
                 const tglKunjunganFormated = formatTanggalSaja(data.tanggal);
@@ -234,14 +322,41 @@
                     <td class="p-4 text-sm text-slate-600">${data.telepon || '-'}</td>
                     <td class="p-4 text-sm text-slate-600"><div class="line-clamp-2 text-xs leading-relaxed" title="${data.testimoni || ''}">${data.testimoni || '-'}</div></td>
                 </tr>`;
+
+                // LOGIKA UNTUK GRAFIK (Berdasarkan Tanggal Kunjungan)
+                if (data.tanggal) {
+                    const parts = data.tanggal.split('-');
+                    // Format JS Date: (Tahun, Bulan index 0-11, Hari)
+                    const visitDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+                    // Hitung Grafik Bulanan (Hanya jika tahunnya sama dengan tahun ini)
+                    if (visitDate.getFullYear() === currentYear) {
+                        monthlyCounts[visitDate.getMonth()]++;
+                    }
+
+                    // Hitung Grafik Mingguan (7 Hari Terakhir)
+                    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                    const diffTime = todayOnly.getTime() - visitDate.getTime();
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                    // Jika kunjungan berada dalam rentang 0 (hari ini) sampai 6 (6 hari lalu)
+                    if (diffDays >= 0 && diffDays < 7) {
+                        // index 6 adalah hari ini, index 5 kemarin, dst.
+                        last7DaysCounts[6 - diffDays]++;
+                    }
+                }
             });
+
             tbody.innerHTML = html;
+            
+            // Panggil fungsi render grafik setelah data selesai dihitung
+            renderCharts(last7DaysLabels, last7DaysCounts, monthlyCounts);
+
         } catch (error) {
             tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-500">Akses ditolak atau koneksi gagal. Pastikan Anda memiliki izin (Auth).</td></tr>`;
         }
     }
 
-    // FUNGSI EXPORT EXCEL
     window.exportToExcel = function() {
         if (window.excelData.length === 0) return alert("Belum ada data untuk diekspor!");
         const worksheet = XLSX.utils.json_to_sheet(window.excelData);
